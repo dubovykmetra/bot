@@ -8,6 +8,9 @@ BOT_TOKEN = "7869776078:AAFTZtTFOrZ1qrqM8Vkz9S1jiYyKGmBn1zI"
 
 async def main():
     bot = Bot(token=BOT_TOKEN)
+    await bot.delete_webhook()
+    print("Webhook deleted")
+    await bot.session.close()
     dp = Dispatcher()
     
     dp.include_routers(start.router, add_skin.router, get_skins.router)
