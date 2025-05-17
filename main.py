@@ -3,8 +3,12 @@ from aiogram import Bot, Dispatcher
 from handlers import start, add_skin, get_skins
 from aiogram.types import BotCommand
 from db.database import init_db
+from services.skins_api import CSPriceChecker
 
-BOT_TOKEN = "7869776078:AAFTZtTFOrZ1qrqM8Vkz9S1jiYyKGmBn1zI"
+
+
+
+BOT_TOKEN = "7869776078:AAHPaABWOzAQDgp7tre40IiCWtuBzfhYltA"
 
 async def main():
     bot = Bot(token=BOT_TOKEN)
@@ -26,5 +30,5 @@ async def main():
 
     await dp.start_polling(bot)
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     asyncio.run(main())

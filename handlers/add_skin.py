@@ -2,31 +2,43 @@ from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 from states.add_skin import AddSkin
 from services.exchange import get_usd_exchange_rate
-from services.skins_api import get_skin_price_from_api
+from services.skins_api import CSPriceChecker
 from db.database import add_skin_to_db
 from datetime import datetime
 from keyboards.reply import date_choice_keyboard
+#from aiogram.types import ReplyKeyboardRemove
 
+checker = CSPriceChecker()
+checker.load_skin_names() 
 
 router = Router()
 
-@router.message(lambda message: message.text == "➕ Добавить скин")
+@router.message(lambda message: message.text == "➕ Добавить скин" or message.text == "/add")
 async def start_add_skin(message: types.Message, state: FSMContext):
     await state.clear()  # ← ОЧИСТКА ПРЕДЫДУЩИХ СОСТОЯНИЙ
+    # current_state = await state.get_state()
+    # await message.answer(f"Состояние после очистки: {current_state}")
     await message.answer("Введите название скина:")
     await state.set_state(AddSkin.waiting_for_name)
 
 @router.message(AddSkin.waiting_for_name)
 async def process_name(message: types.Message, state: FSMContext):
+    # current_state = await state.get_state()
+    # await message.answer(f"Состояние после очистки: {current_state}")
     await state.update_data(name=message.text)
     await message.answer("Введите цену покупки (в $ или грн):")
     await state.set_state(AddSkin.waiting_for_price)
 
 @router.message(AddSkin.waiting_for_price)
 async def process_price(message: types.Message, state: FSMContext):
+    # current_state = await state.get_state()
+    # await message.answer(f"Состояние после очистки: {current_state}")
     user_data = await state.get_data()
     name = user_data["name"]
     rate = get_usd_exchange_rate()
+    if message.text is None:
+        await message.answer("Пожалуйста, отправьте текстовое сообщение с ценой.")
+        return
     text = message.text.replace(",", ".")
 
     try:
@@ -37,8 +49,10 @@ async def process_price(message: types.Message, state: FSMContext):
     except:
         await message.answer("❌ Неверный формат цены. Повторите ввод.")
         return
+    
+    print(f"Вызов функции {checker.find_price(name)}")
 
-    market_price = get_skin_price_from_api(name)
+    market_price = checker.find_price(name)
     if market_price is None:
         await message.answer(
             f"❌ Скин с именем «{name}» не найден. Попробуйте снова.\nВведите название скина:"
@@ -66,6 +80,8 @@ async def process_price(message: types.Message, state: FSMContext):
 
 @router.message(AddSkin.waiting_for_date_choice)
 async def process_date_choice(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    await message.answer(f"Состояние после очистки: {current_state}")
     if message.text == "📅 Сегодня":
         purchase_date = datetime.now().strftime("%Y-%m-%d")
         await finalize_skin_add(message, state, purchase_date)
@@ -99,7 +115,7 @@ async def finalize_skin_add(message: types.Message, state: FSMContext, purchase_
     user_data = await state.get_data()
     name = user_data["name"]
     purchase_price = user_data["purchase_price"]
-    market_price = get_skin_price_from_api(name)
+    market_price = checker.find_price(name)
 
     final_price = market_price * 0.95 * 0.95
     profit = (final_price - purchase_price) / purchase_price * 100
@@ -115,3 +131,9 @@ async def finalize_skin_add(message: types.Message, state: FSMContext, purchase_
         f"{'📈 Выгода' if profit > 0 else '📉 Убыток'}: {profit:.2f}%"
     )
     await state.clear()
+    
+    # Устанавливаем начальное состояние добавления скина
+    await state.set_state(AddSkin.waiting_for_name)
+    
+    # Заново запускаем цикл
+    await message.answer("Введите название следующего скина:")
